@@ -1,0 +1,25 @@
+<html>
+    <head>
+       <% htmlWebpackPlugin.files.css.forEach(function(script){ %>
+            <script src="<%=script%>"></script>
+       <% }) %>
+       <%="\<\% headScripts.forEach(function(script){ \%\>"%>
+            <script src="<%="\<\%- script \%\>"%>"></script>
+       <%="\<\% }); \%\>"%>
+    </head>
+    <body>
+        <div id="appMain"><%="\<\%- body \%\>"%></div>
+
+       <%="\<\% beforeScripts.forEach(function(script){ \%\>"%>
+            <script src="<%="\<\%- script \%\>"%>"></script>
+       <%="\<\% }); \%\>"%>
+
+       <% htmlWebpackPlugin.files.js.forEach(function(script){ %>
+            <script src="<%-script%>" defer></script>
+       <% }) %>
+
+       <%="\<\% afterScripts.forEach(function(script){ \%\>"%>
+        <script src="<%="\<\%- script \%\>"%>"></script>
+       <%="\<\% }); \%\>"%>
+    </body>
+</html>

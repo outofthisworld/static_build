@@ -1,0 +1,27 @@
+<html>
+    <head>
+       
+       <% headScripts.forEach(function(script){ %>
+            <script src="<%- script %>"></script>
+       <% }); %>
+    </head>
+    <body>
+        <div id="appMain"><%- body %></div>
+
+       <% beforeScripts.forEach(function(script){ %>
+            <script src="<%- script %>"></script>
+       <% }); %>
+
+       
+            <script src="runtime.development.e9ac02414025e5114b56.bundle.js" defer="defer"></script>
+       
+            <script src="vendors.development.e9ac02414025e5114b56.bundle.js" defer="defer"></script>
+       
+            <script src="main.development.e9ac02414025e5114b56.bundle.js" defer="defer"></script>
+       
+
+       <% afterScripts.forEach(function(script){ %>
+        <script src="<%- script %>"></script>
+       <% }); %>
+    </body>
+</html>
