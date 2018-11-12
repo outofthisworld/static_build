@@ -4,11 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "gulp run::server::dev",
-    "start::prod": "gulp run::server::prod",
-    "build": "gulp build::server::prod",
-    "build-dev": "gulp build::server::dev",
-    "gulp": "gulp --tasks",
+    "start": "gulp runServerDev",
+    "start::prod": "gulp runServerProd",
+    "build": "gulp buildServerProd",
+    "build-dev": "gulp buildServerDev",
+    "gulptasks": "gulp --tasks",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,6 +23,8 @@
     "@babel/cli": "^7.1.5",
     "@babel/core": "^7.1.5",
     "@babel/node": "^7.0.0",
+    "@babel/plugin-proposal-class-properties": "^7.1.0",
+    "@babel/plugin-syntax-dynamic-import": "^7.0.0",
     "@babel/preset-env": "^7.1.5",
     "@babel/preset-react": "^7.0.0",
     "delete": "^1.1.0",
@@ -36,6 +38,7 @@
     "react-redux": "^5.1.1",
     "react-router-dom": "^4.3.1",
     "redux": "^4.0.1",
+    "redux-thunk": "^2.3.0",
     "webpack": "^4.25.1"
   }
 }

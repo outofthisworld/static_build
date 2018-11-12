@@ -7,9 +7,21 @@ import path from "path";
 
 
 const app = express();
-console.log(path.join(__dirname,'../','public'))
-app.use(express.static(path.join(__dirname,'../','public','dist')))
-app.listen(5558, function() {
+const publicBase = path.join(__dirname,'../','public','dist')
+
+app.use(express.static(publicBase))
+
+
+app.get('/about',function(req,res){
+  fs.createReadStream(publicBase + req.url + '.html').pipe(res)
+
+})
+
+app.get('/something',function(req,res){
+  fs.createReadStream(publicBase + req.url + '.html').pipe(res)
+})
+
+app.listen(5560, function() {
   console.log("Server started");
 });
 

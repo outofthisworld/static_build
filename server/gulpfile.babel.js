@@ -15,14 +15,13 @@ import { StaticRouter } from "react-router-dom";
 import { Provider as ReduxProvider } from "react-redux";
 import objectHash from "object-hash";
 
-
 function cleanClientSrc(cb) {
   return del(`csrc/**/*.*`, cb);
 }
 
 function cleanClientBuildDir() {
   return function(cb) {
-    return del(`public/dist/*.*`, cb);
+    return del(`public/dist/**`, cb);
   };
 }
 
@@ -34,7 +33,7 @@ function buildFrontEnd(config) {
   return function buildTheFrontEnd(cb) {
     webpack(config, function(err, stats) {
       if (err || stats.hasErrors()) {
-        return cb(stats.toJson());
+        return cb(stats.toString());
       } else {
         return cb();
       }
@@ -46,7 +45,11 @@ function buildBackEnd(cb) {
   pipeline(
     gulp.src("src/app.js"),
     babel({
-      presets: ["@babel/preset-react", "@babel/preset-env"]
+      presets: ["@babel/preset-react", "@babel/preset-env"],
+      plugins: [
+        "@babel/plugin-syntax-dynamic-import",
+        "@babel/plugin-proposal-class-properties"
+      ]
     }),
     gulp.dest("out"),
     cb
@@ -76,7 +79,7 @@ function runServerDev(callback) {
       return function onExitOrError(one, two) {
         switch (eventType) {
           case "ERROR":
-            return callback(one);
+            return callback(one.message);
           case "EXIT":
             console.log(
               "Child process exiting with status code " +
@@ -123,114 +126,146 @@ function runServerProd() {
 }
 
 function buildServerStatic() {
-  const renderRoute = function(route) {
-    const App = require("./csrc/app.js").default;
-    const store = require("./csrc/redux/configure_store.js").default;
-    const context = {};
-    let WrappedApp = (
-      <ReduxProvider store={store}>
-        <StaticRouter context={context} location={route}>
-          <App />
-        </StaticRouter>
-      </ReduxProvider>
-    );
-    return [renderToString(WrappedApp), store.getState()];
-  };
+  const renderRoute = function(route, dispatch) {
+    return new Promise(function(res) {
+      const App = require("./csrc/app.js").default;
+      delete require.cache[require.resolve("./csrc/redux/configure_store.js")];
+      const store = require("./csrc/redux/configure_store.js").default;
 
-  let routePath = "/";
-  const [html, state] = renderRoute();
-
-  return globby(["public/dist/index.*.ejs"])
-    .then(function(paths) {
-      if (paths.length === 0) {
-        throw new Error("Could not find applicable file");
+      function render() {
+        console.log("Rendering state ", store.getState());
+        const context = {};
+        let WrappedApp = () => (
+          <ReduxProvider store={store}>
+            <StaticRouter context={context} location={route}>
+              <App />
+            </StaticRouter>
+          </ReduxProvider>
+        );
+        res([renderToString(<WrappedApp />), store.getState()]);
       }
-      let path = paths[0];
-      return util.promisify(fs.readFile)(path, "utf8");
-    })
-    .then(function(fileContents) {
-      let statePath = path.join(
-        __dirname,
-        `public/dist/${routePath === "/" ? "index" : path}_${objectHash(
-          state
-        )}_store.js`
-      );
-      const saveStatePromise = util.promisify(fs.writeFile)(
-        statePath,
-        `
-       window.__REDUX_STATE__ = ${JSON.stringify(state)}
-    `
-      );
-      let compiledTemplate = ejs.compile(fileContents);
-      const compiledHtml = compiledTemplate({
-        body: html,
-        beforeScripts: [],
-        afterScripts: [],
-        headScripts: [`${path.basename(statePath)}`]
-      });
-      const saveCompiledHtmlPromise = util.promisify(fs.writeFile)(
-        path.join(__dirname, "public/dist/index.html"),
-        compiledHtml,
-        "utf8"
-      );
-      return Promise.all([saveStatePromise, saveCompiledHtmlPromise]);
+
+      if (dispatch.length === 0) {
+        render();
+      } else {
+        let count = 0;
+        for (let i = 0; i < dispatch.length; i++) {
+          let f = dispatch[i];
+          f.call(null, store.dispatch, function(err) {
+            count++;
+            if (count === dispatch.length) {
+              render();
+            }
+          });
+        }
+      }
     });
+  };
+  const config = require("./src/config/config_routes");
+
+  let routePaths = Object.keys(config).map(function(key) {
+    return config[key];
+  });
+  let build = [];
+  routePaths.forEach(({ route: routePath, dispatch }) => {
+    build.push(
+      renderRoute(routePath, dispatch).then(function([html, state]) {
+        return globby(["public/dist/index.*.ejs"])
+          .then(function(paths) {
+            if (paths.length === 0) {
+              throw new Error("Could not find applicable file");
+            }
+            let path = paths[0];
+            return util.promisify(fs.readFile)(path, "utf8");
+          })
+          .then(function(fileContents) {
+            let statePath = path.join(
+              __dirname,
+              `public/dist/${routePath === "/"
+                ? "index"
+                : routePath}_${objectHash(
+                Object.assign({}, state, { fileContents, routePath })
+              )}_store.js`
+            );
+            const saveStatePromise = util.promisify(fs.writeFile)(
+              statePath,
+              `
+            window.__REDUX_STATE__ = ${JSON.stringify(state)}
+          `
+            );
+            let compiledTemplate = ejs.compile(fileContents);
+            const compiledHtml = compiledTemplate({
+              body: html,
+              beforeScripts: [],
+              afterScripts: [],
+              headScripts: [`${path.basename(statePath)}`]
+            });
+            const saveCompiledHtmlPromise = util.promisify(fs.writeFile)(
+              path.join(
+                __dirname,
+                `public/dist/${routePath === "/" ? "index" : routePath}.html`
+              ),
+              compiledHtml,
+              "utf8"
+            );
+            return Promise.all([saveStatePromise, saveCompiledHtmlPromise]);
+          });
+      })
+    );
+  });
+
+  return Promise.all(build).catch(console.error);
 }
 
 const copyProductionFiles = copyFrontEndDistToServer("prod");
 const copyDevelopmentFiles = copyFrontEndDistToServer("dev");
 const cleanDistDir = cleanClientBuildDir();
 
-exports["build::frontend::prod"] = buildFrontEnd(
+export const buildFrontEndProd = buildFrontEnd(
   require("../client/webpack.prod.config.js")
 );
-exports["build::frontend::dev"] = buildFrontEnd(
+
+export const buildFrontEndDev = buildFrontEnd(
   require("../client/webpack.dev.config.js")
 );
-exports["build::server"] = buildBackEnd;
 
-exports["copy::client-dist::prod"] = gulp.series(
+export const buildServer = buildBackEnd;
+
+export const copyClientDistProd = gulp.series(
   cleanDistDir,
   copyProductionFiles
 );
-exports["copy::client-dist::dev"] = gulp.series(
+export const copyClientDistDev = gulp.series(
   cleanDistDir,
   copyDevelopmentFiles
 );
-exports["build&copy::client-dist::prod"] = gulp.series(
-  exports["build::frontend::prod"],
-  exports["copy::client-dist::prod"]
+export const buildAndCopyClientDistProd = gulp.series(
+  buildFrontEndProd,
+  copyClientDistProd
 );
 
-exports["build&copy::client-dist::dev"] = gulp.series(
-  exports["build::frontend::dev"],
-  exports["copy::client-dist::dev"]
+export const buildAndCopyClientDistDev = gulp.series(
+  buildFrontEndDev,
+  copyClientDistDev
 );
 
-exports["clean::build"] = cleanDistDir;
+export const cleanBuild = cleanDistDir;
 
-exports["build::server::dev"] = gulp.parallel(
+export const buildServerDev = gulp.parallel(
   gulp.series(
     cleanClientSrc,
     copyClientSrc,
-    exports["build&copy::client-dist::dev"],
+    buildAndCopyClientDistDev,
     buildServerStatic
   ),
-  gulp.series(cleanServerBuildDir, exports["build::server"])
+  gulp.series(cleanServerBuildDir, buildServer)
 );
 
-exports["build::server::prod"] = gulp.series(
-  cleanServerBuildDir,
-  exports["build::server"]
-);
+export const buildServerProd = gulp.series(cleanServerBuildDir, buildServer);
 
-exports["run::server::dev"] = gulp.series(
-  exports["build::server::dev"],
-  runServerDev
-);
+export const runServerDev = gulp.series(buildServerDev, runServerDev);
 
-exports["run::server::prod"] = gulp.parallel(
-  gulp.series(exports["build::server::prod"], runServerProd),
-  gulp.series(cleanClientSrc, copyClientSrc),
-  exports["build&copy::client-dist::prod"]
+export const runServerProd = gulp.parallel(
+  gulp.series(buildServerProd, runServerProd),
+  gulp.series(buildAndCopyClientDistProd, buildServerStatic)
 );

@@ -15,9 +15,17 @@ var _path = _interopRequireDefault(require("path"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 var app = (0, _express.default)();
-console.log(_path.default.join(__dirname, '../', 'public'));
-app.use(_express.default.static(_path.default.join(__dirname, '../', 'public', 'dist')));
-app.listen(5558, function () {
+
+var publicBase = _path.default.join(__dirname, '../', 'public', 'dist');
+
+app.use(_express.default.static(publicBase));
+app.get('/about', function (req, res) {
+  _fs.default.createReadStream(publicBase + req.url + '.html').pipe(res);
+});
+app.get('/something', function (req, res) {
+  _fs.default.createReadStream(publicBase + req.url + '.html').pipe(res);
+});
+app.listen(5560, function () {
   console.log("Server started");
 });
 process.on("disconnect", function () {

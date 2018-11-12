@@ -1,16 +1,14 @@
 <html>
     <head>
        
-       <% headScripts.forEach(function(script){ %>
-            <script src="<%- script %>"></script>
-       <% }); %>
+       
+            <script src="something_c8c8e69335cb89cca24d5a38abb2aedcd2756761_store.js"></script>
+       
     </head>
     <body>
-        <div id="appMain"><%- body %></div>
+        <div id="appMain"><a href="/">Index</a><a href="/about">About</a><a href="/something">Something</a><p>Something</p></div>
 
-       <% beforeScripts.forEach(function(script){ %>
-            <script src="<%- script %>"></script>
-       <% }); %>
+       
 
        
             <script src="runtime.development.3976c6f7bf3665de56c8.bundle.js" defer="defer"></script>
@@ -20,8 +18,6 @@
             <script src="main.development.3976c6f7bf3665de56c8.bundle.js" defer="defer"></script>
        
 
-       <% afterScripts.forEach(function(script){ %>
-        <script src="<%- script %>"></script>
-       <% }); %>
+       
     </body>
 </html>

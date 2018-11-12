@@ -31,8 +31,9 @@ const config = {
                             modules: false
                         }
                     ],    
-                    '@babel/preset-react'
-                ]
+                    '@babel/preset-react',
+                ],
+                plugins:['@babel/plugin-syntax-dynamic-import','@babel/plugin-proposal-class-properties']
             }
         }
         ],
